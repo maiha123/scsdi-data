@@ -3,3 +3,4 @@ gunicorn
 pandas
 plotly
 dash_leaflet
+geopandas
