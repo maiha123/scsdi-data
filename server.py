@@ -6,6 +6,7 @@ import pandas as pd
 from flask import Flask
 import shapely
 import datetime
+import requests
 
 #-----
 # Initialize Flask app
@@ -14,7 +15,7 @@ app = Dash(__name__, server=server, url_base_pathname="/dashboard/")
 #------
 
 # Load dataset
-dataset_path = "/Users/hanguyen/Documents/SCSDI/Data"
+dataset_path = "/app/scsdi-data/data"
 buffers = [gpd.read_file(f"{dataset_path}/buffer{i}.gpkg") for i in (1, 2, 34, 5, 6)]
 buffer_all = gpd.GeoDataFrame(pd.concat(buffers, ignore_index=True))
 
@@ -151,7 +152,7 @@ def update_map(start_date, end_date, selected_countries):
 
 if __name__ == "__main__":
 #    server = app.server
-    app.run(debug=True)
+    app.run_server(debug=True)
 #    server.run(host="0.0.0.0", port=8000)
 #    app.run(debug=False, host="0.0.0.0", port=5000)
 
