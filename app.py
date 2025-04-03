@@ -151,7 +151,8 @@ def update_map(start_date, end_date, selected_countries):
 
 
 if __name__ == "__main__":
+    server = app.server
 #    app.run(debug=True)
 #    server.run(host="0.0.0.0", port=8000)
-    app.run(debug=False, host="0.0.0.0", port=5000)
+#    app.run(debug=False, host="0.0.0.0", port=5000)
 
