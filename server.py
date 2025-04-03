@@ -6,7 +6,6 @@ import pandas as pd
 from flask import Flask
 import shapely
 import datetime
-from app import app  # Assuming your Dash app is wrapped in Flask in app.py
 
 #-----
 # Initialize Flask app
