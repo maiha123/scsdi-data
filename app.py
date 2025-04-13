@@ -10,8 +10,10 @@ import requests
 
 #-----
 # Initialize Flask app
-server = Flask(__name__)
-app = Dash(__name__, server=server, url_base_pathname="/dashboard/")  
+#server = Flask(__name__)
+#app = Dash(__name__, server=server, url_base_pathname="/dashboard/")  
+app = Dash(__name__)
+server = app.server
 #------
 
 # Load dataset
@@ -153,8 +155,6 @@ def update_map(start_date, end_date, selected_countries):
 
 
 if __name__ == "__main__":
-#    server = app.server
-#    app.run_server(debug=True)
-#    server.run(host="0.0.0.0", port=8000)
-    app.run(debug=True)
+    app.run_server(debug=False)
+
 
