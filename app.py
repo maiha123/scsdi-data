@@ -7,7 +7,7 @@ from flask import Flask
 import shapely
 import datetime
 import requests
-
+import os
 #-----
 # Initialize Flask app
 #server = Flask(__name__)
@@ -17,9 +17,10 @@ server = app.server
 #------
 
 # Load dataset
-dataset_path = "data"
+#dataset_path = "data"
 #dataset_path = "/Users/hanguyen/Documents/SCSDI/Data/data"
 #dataset_path = "https://github.com/maiha123/scsdi-data/tree/main/data"
+dataset_path = os.path.join(os.path.dirname(__file__), "data")
 
 buffers = [gpd.read_file(f"{dataset_path}/buffer{i}.gpkg") for i in (1, 2, 34, 5, 6)]
 buffer_all = gpd.GeoDataFrame(pd.concat(buffers, ignore_index=True))
