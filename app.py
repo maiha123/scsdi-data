@@ -18,7 +18,8 @@ server = app.server
 
 # Load dataset
 #dataset_path = "/app/scsdi-data/data"
-dataset_path = "/Users/hanguyen/Documents/SCSDI/Data/data"
+#dataset_path = "/Users/hanguyen/Documents/SCSDI/Data/data"
+dataset_path = "https://github.com/maiha123/scsdi-data/tree/main/data"
 
 buffers = [gpd.read_file(f"{dataset_path}/buffer{i}.gpkg") for i in (1, 2, 34, 5, 6)]
 buffer_all = gpd.GeoDataFrame(pd.concat(buffers, ignore_index=True))
