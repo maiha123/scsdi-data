@@ -157,6 +157,6 @@ def update_map(start_date, end_date, selected_countries):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=False)
+    app.run(debug=False)
 
 
