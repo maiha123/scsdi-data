@@ -31,7 +31,7 @@ buffer_all["event_date"] = pd.to_datetime(buffer_all["event_date"], errors="coer
 buffer_all = buffer_all.dropna(subset=["event_date"]) #
 
 # Initialize Dash app
-app = dash.Dash(__name__)
+# app = dash.Dash(__name__)
 
 # Sort data by event_date
 buffer_all = buffer_all.sort_values("event_date")
