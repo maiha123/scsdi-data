@@ -8,40 +8,35 @@ import shapely
 import datetime
 import requests
 import os
-#-----
+
 # Initialize Flask app
-#server = Flask(__name__)
-#app = Dash(__name__, server=server, url_base_pathname="/dashboard/")  
+
 app = Dash(__name__)
 server = app.server
-#------
 
 # Load dataset
-#dataset_path = "data"
 #dataset_path = "/Users/hanguyen/Documents/SCSDI/Data/data"
-#dataset_path = "https://github.com/maiha123/scsdi-data/tree/main/data"
 dataset_path = os.path.join(os.path.dirname(__file__), "data")
 
 buffers = [gpd.read_file(f"{dataset_path}/buffer{i}.gpkg") for i in (1, 2, 34, 5, 6)]
 buffer_all = gpd.GeoDataFrame(pd.concat(buffers, ignore_index=True))
 
 # Clean date column
-buffer_all['event_date'] = buffer_all['event_date'].str.split(" - ").str[0]  # Take only the start date
+buffer_all['event_date'] = buffer_all['event_date'].str.split(" - ").str[0]
 buffer_all["event_date"] = pd.to_datetime(buffer_all["event_date"], errors="coerce")
-buffer_all = buffer_all.dropna(subset=["event_date"]) #
-
-# Initialize Dash app
-# app = dash.Dash(__name__)
+buffer_all = buffer_all.dropna(subset=["event_date"])
 
 # Sort data by event_date
 buffer_all = buffer_all.sort_values("event_date")
 
-# Get unique countries
-unique_countries = buffer_all["event_id_cnty"].dropna().unique()
+# Split combined country codes and get unique individual countries
+buffer_all['countries'] = buffer_all['event_id_cnty'].str.split('/')  # Split into lists
+all_countries = buffer_all['countries'].explode().unique()             # Get individual countries
+all_countries = [c for c in all_countries if c is not None]            # Remove any None values
 
 app.layout = html.Div([
-    html.H1("South China Sea Disputes - Interactive Map"),
-
+    # html.H1("South China Sea Disputes - Interactive Map"),
+    
     # Filters: Date Range & Country Selection
     html.Div([
         html.Label("Select date range:", style={"font-weight": "bold"}),
@@ -51,44 +46,28 @@ app.layout = html.Div([
             max_date_allowed=buffer_all["event_date"].max(),
             start_date=buffer_all["event_date"].min(),
             end_date=buffer_all["event_date"].max(),
-            display_format="YYYY-MM-DD"  # Format for better usability
+            display_format="YYYY-MM-DD"
         ),
     ], style={"width": "50%", "margin": "auto", "padding": "20px"}),
     
-        # Separate div to ensure "Select countries" appears on a new line
-
-        # Country Dropdown
     html.Div([
         html.Label("Select countries:", style={"font-weight": "bold"}),
         dcc.Dropdown(
-            options=[{"label": country, "value": country} for country in unique_countries],
+            options=[{"label": c, "value": c} for c in all_countries],
             multi=True,
             id="country-dropdown",
-            placeholder="Select one or more countries"
-
+            placeholder="Select one or more individual countries"
         ),
     ], style={"width": "50%", "margin": "auto", "padding-bottom": "2px"}),
 
-    # OK Button
-    #html.Div([
-    #    html.Button("OK", id="apply-filters", n_clicks=0, style={"margin-top": "10px", "width": "100px"}),
-
-    #], style={
-    #    "width": "50%",
-    #    "margin": "auto",
-    #    "padding": "20px",
-    #    "background-color": "white",
-    #    "border-radius": "10px",
-    #    "box-shadow": "0px 4px 10px rgba(0, 0, 0, 0.1)",
-    #    "position": "relative",
-    #    "zIndex": "10000"  # Ensures dropdown is above the map
-    #}),
-
-    # Map container
     dl.Map(
         [dl.TileLayer(), dl.LayerGroup(id="geojson-layer")],
         center=[10, 110], zoom=5, style={"height": "80vh", "width": "100%"}, id="map"
-    )
+    ), 
+
+    # Hidden div to store clicked event data (optional for advanced use)
+    html.Div(id="hidden-event-data", style={"display": "none"})
+
 ])
 
 @app.callback(
@@ -99,64 +78,71 @@ app.layout = html.Div([
         Input("country-dropdown", "value")
     ]
 )
-
-#def update_map(start_date, end_date, selected_countries):
-    # Convert date strings to datetime
-#    start_date = pd.to_datetime(start_date)
-#    end_date = pd.to_datetime(end_date)
-
-    # Filter data based on selected date range
-#    df = buffer_all[(buffer_all["event_date"] >= start_date) & (buffer_all["event_date"] <= end_date)]
-
-    # Filter by country selection
-#    if selected_countries:
-#        df = df[df["event_id_cnty"].isin(selected_countries)]
-    
-    # Create GeoJSON features
-#    geojson_features = [
-#        dl.GeoJSON(data=df.__geo_interface__, id="filtered-geojson")
-#    ]
-    
-#    return geojson_features
-
 def update_map(start_date, end_date, selected_countries):
     # Convert date strings to datetime
     start_date = pd.to_datetime(start_date) if start_date else None
     end_date = pd.to_datetime(end_date) if end_date else None
-#    selected_countries = selected_countries if selected_countries else unique_countries
-
-    # Ensure selected_countries is not empty
-    if not selected_countries or len(selected_countries) == 0:
-        selected_countries = unique_countries  # Default to all countries
-
-    # Filter data:
-    df = buffer_all[
-        (buffer_all["event_date"] >= start_date) &
-        (buffer_all["event_date"] <= end_date) &
-        (buffer_all["event_id_cnty"].isin(selected_countries))
-    ]
     
-    # Convert MultiPolygon geometries to centroids
-    df["geometry"] = df["geometry"].apply(lambda g: g.centroid if g.geom_type in ["Polygon", "MultiPolygon"] else g)
-
-    # Create CircleMarkers with fixed radius
-    circle_markers = [
-        dl.CircleMarker(
-            center=[row.geometry.y, row.geometry.x],  # Lat, Lon from centroid
-            radius=5,  # Fixed radius
-            color="#1f77b4",
-            fill=True,
-            fillColor="#1f77b4",
-            fillOpacity=0.5,
-            children=dl.Tooltip(row["notes"] if pd.notna(row["notes"]) else "No notes available"),
+    # Filter by date first
+    date_mask = (
+        (buffer_all["event_date"] >= start_date) &
+        (buffer_all["event_date"] <= end_date)
+    )
+    df = buffer_all[date_mask]
+    
+    # Filter by countries if any are selected
+    if selected_countries:
+        country_mask = df['countries'].apply(
+            lambda x: any(c in selected_countries for c in x)
         )
-        for _, row in df.iterrows() if isinstance(row.geometry, shapely.geometry.Point)
-    ]
+        df = df[country_mask]
+    
+    # Convert geometries to centroids if needed
+    df["geometry"] = df["geometry"].apply(
+        lambda g: g.centroid if g.geom_type in ["Polygon", "MultiPolygon"] else g
+    )
 
+    # Create CircleMarkers with clickable popups
+    circle_markers = []
+    for _, row in df.iterrows():
+        if isinstance(row.geometry, shapely.geometry.Point):
+            # Build popup content
+            popup_content = html.Div([
+                html.H4(f"Event ID: {row.get('event_id', 'N/A')}"),
+                html.P(f"Countries: {row['event_id_cnty']}"),
+                html.P(f"Notes: {row['notes']}"),
+                html.P(f"Source: {row.get('source', 'N/A')}"),
+                html.P(f"Ships Involved: {row.get('ships_involved', 'N/A')}"),
+		
+		# Add hyperlink if a source URL exists
+                html.A("Source Link", href=row.get("source_url"), target="_blank") 
+                if pd.notna(row.get("source_url")) else html.P()
+                ],
+                style={
+                    "userSelect": "text",  # Allow text selection
+                    "cursor": "text",      # Show text cursor
+                    "fontFamily": "Arial",
+                    "fontSize": "14px"
+                }
+            )
+            
+            # Create marker with tooltip (hover) and popup (click)
+            marker = dl.CircleMarker(
+                center=[row.geometry.y, row.geometry.x],
+                radius=5,
+                color="#1f77b4",
+                fill=True,
+                fillColor="#1f77b4",
+                fillOpacity=0.5,
+                children=[
+                #   dl.Tooltip(row["notes"] if pd.notna(row["notes"]) else "No notes available"),
+                    dl.Popup(popup_content)  # This adds the clickable popup
+                ],
+                id=f"marker-{row.name}"  # Optional: for advanced interactivity
+            )
+            circle_markers.append(marker)
+    
     return circle_markers
-
 
 if __name__ == "__main__":
     app.run(debug=False)
-
-
